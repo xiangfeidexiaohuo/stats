@@ -15,11 +15,11 @@ public class DotWidget: WidgetWrapper {
     private var value: NSColor = .systemGreen
     
     public init(title: String, config: NSDictionary?, preview: Bool = false) {
-        if config != nil {
-            var configuration = config!
+        if let config = config {
+            var configuration = config
             
             if preview {
-                if let previewConfig = config!["Preview"] as? NSDictionary {
+                if let previewConfig = config["Preview"] as? NSDictionary {
                     configuration = previewConfig
                     if let value = configuration["Value"] as? Bool {
                         self.value = value ? .systemGreen : .systemRed
@@ -56,5 +56,36 @@ public class DotWidget: WidgetWrapper {
         DispatchQueue.main.async(execute: {
             self.display()
         })
+    }
+    
+    // MARK: - Settings
+    
+    public override func settings() -> NSView {
+        let view = SettingsContainerView()
+        
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
+        view.addArrangedSubview(PreferencesSection([
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
+        ]))
+        
+        return view
     }
 }

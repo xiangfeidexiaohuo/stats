@@ -30,7 +30,6 @@ public struct Stack_t: KeyValue_p {
 
 public class StackWidget: WidgetWrapper {
     private var modeState: StackMode = .auto
-    private var fixedSizeState: Bool = false
     private var monospacedFontState: Bool = false
     private var alignmentState: String = "left"
     
@@ -70,7 +69,6 @@ public class StackWidget: WidgetWrapper {
         
         if !preview {
             self.modeState = StackMode(rawValue: Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_mode", defaultValue: self.modeState.rawValue)) ?? .auto
-            self.fixedSizeState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_size", defaultValue: self.fixedSizeState)
             self.monospacedFontState = Store.shared.bool(key: "\(self.title)_\(self.type.rawValue)_monospacedFont", defaultValue: self.monospacedFontState)
             self.alignmentState = Store.shared.string(key: "\(self.title)_\(self.type.rawValue)_alignment", defaultValue: self.alignmentState)
         }
@@ -96,6 +94,37 @@ public class StackWidget: WidgetWrapper {
         
         guard !values.isEmpty else {
             self.setWidth(0)
+            return
+        }
+        
+        // 如果启用了自定义宽度，直接使用自定义宽度，不进行计算
+        if self.isCustomWidthEnabled() {
+            let num: Int = Int(round(Double(values.count) / 2))
+            var x: CGFloat = Constants.Widget.spacing
+            
+            var i = 0
+            while i < values.count {
+                switch mode {
+                case .auto, .twoRows:
+                    let firstElement: Stack_t = values[i]
+                    let secondElement: Stack_t? = values.indices.contains(i+1) ? values[i+1] : nil
+                    
+                    if mode == .auto && secondElement == nil {
+                        _ = self.drawOneRow(x, firstElement)
+                    } else {
+                        _ = self.drawTwoRows(x, firstElement, secondElement)
+                    }
+                    
+                    i += 1
+                case .oneRow:
+                    _ = self.drawOneRow(x, values[i])
+                }
+                
+                i += 1
+            }
+            
+            guard abs(self.frame.width - self.getCustomWidthValue()) > 2 else { return }
+            self.setWidth(self.getCustomWidthValue())
             return
         }
         
@@ -149,11 +178,9 @@ public class StackWidget: WidgetWrapper {
     
     private func drawOneRow(_ x: CGFloat, _ element: Stack_t) -> CGFloat {
         var monospacedFontState: Bool = false
-        var fixedSizeState: Bool = false
         var alignment: NSTextAlignment = .left
         self.queue.sync {
             monospacedFontState = self.monospacedFontState
-            fixedSizeState = self.fixedSizeState
             alignment = self.alignment
         }
         
@@ -165,10 +192,7 @@ public class StackWidget: WidgetWrapper {
         let style = NSMutableParagraphStyle()
         style.alignment = alignment
         
-        var width: CGFloat = self.oneRowWidth
-        if !fixedSizeState {
-            width = element.value.widthOfString(usingFont: font).rounded(.up) + 2
-        }
+        let width: CGFloat = element.value.widthOfString(usingFont: font).rounded(.up) + 2
         
         let rect = CGRect(x: x, y: (Constants.Widget.height-13)/2, width: width, height: 13)
         let str = NSAttributedString.init(string: element.value, attributes: [
@@ -184,11 +208,9 @@ public class StackWidget: WidgetWrapper {
     private func drawTwoRows(_ x: CGFloat, _ topElement: Stack_t, _ bottomElement: Stack_t?) -> CGFloat {
         let rowHeight: CGFloat = self.frame.height / 2
         var monospacedFontState: Bool = false
-        var fixedSizeState: Bool = false
         var alignment: NSTextAlignment = .left
         self.queue.sync {
             monospacedFontState = self.monospacedFontState
-            fixedSizeState = self.fixedSizeState
             alignment = self.alignment
         }
         
@@ -207,12 +229,9 @@ public class StackWidget: WidgetWrapper {
             NSAttributedString.Key.paragraphStyle: style
         ]
         
-        var width: CGFloat = self.twoRowWidth
-        if !fixedSizeState {
-            let firstRowWidth = topElement.value.widthOfString(usingFont: font)
-            let secondRowWidth = bottomElement?.value.widthOfString(usingFont: font) ?? 0
-            width = max(20, max(firstRowWidth, secondRowWidth)).rounded(.up) + 2
-        }
+        let firstRowWidth = topElement.value.widthOfString(usingFont: font)
+        let secondRowWidth = bottomElement?.value.widthOfString(usingFont: font) ?? 0
+        let width: CGFloat = max(20, max(firstRowWidth, secondRowWidth)).rounded(.up) + 2
         
         var rect = CGRect(x: x, y: rowHeight+1, width: width, height: rowHeight)
         var str = NSAttributedString.init(string: topElement.value, attributes: attributes)
@@ -274,13 +293,29 @@ public class StackWidget: WidgetWrapper {
                 selected: self.alignmentState
             ))
         ]
-        if self.title != "Clock" {
-            rows.append(PreferencesRow(localizedString("Static width"), component: switchView(
-                action: #selector(self.toggleSize),
-                state: self.fixedSizeState
-            )))
-        }
-        view.addArrangedSubview(PreferencesSection(rows))
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
+        var updatedRows = rows
+        updatedRows.append(PreferencesRow(localizedString("Custom width"), component: widthSwitch))
+        
+        view.addArrangedSubview(PreferencesSection(updatedRows))
         
         view.addArrangedSubview(self.orderTableView)
         
@@ -291,12 +326,6 @@ public class StackWidget: WidgetWrapper {
         guard let key = sender.representedObject as? String else { return }
         self.modeState = StackMode(rawValue: key) ?? .auto
         Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_mode", value: key)
-        self.display()
-    }
-    
-    @objc private func toggleSize(_ sender: NSControl) {
-        self.fixedSizeState = controlState(sender)
-        Store.shared.set(key: "\(self.title)_\(self.type.rawValue)_size", value: self.fixedSizeState)
         self.display()
     }
     

@@ -59,7 +59,15 @@ public class TextWidget: WidgetWrapper {
             with: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
-        let width = (size.width+Constants.Widget.margin.x*2).roundedUpToNearestTen()
+        
+        // 使用自定义宽度或原始宽度
+        let width: CGFloat
+        if self.isCustomWidthEnabled() {
+            width = self.getCustomWidthValue()
+        } else {
+            width = (size.width+Constants.Widget.margin.x*2).roundedUpToNearestTen()
+        }
+        
         let origin: CGPoint = CGPoint(x: Constants.Widget.margin.x, y: ((Constants.Widget.height-valueSize-1)/2))
         let rect = CGRect(x: origin.x, y: origin.y, width: width - (Constants.Widget.margin.x*2), height: valueSize)
         attributedString.draw(with: rect)
@@ -96,5 +104,34 @@ public class TextWidget: WidgetWrapper {
             print("Error creating regex: \(error.localizedDescription)")
         }
         return pairs
+    }
+    
+    public override func settings() -> NSView {
+        let view = SettingsContainerView()
+        
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
+        view.addArrangedSubview(PreferencesSection([
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
+        ]))
+        
+        return view
     }
 }

@@ -68,7 +68,8 @@ public class MemoryWidget: WidgetWrapper {
         
         let letterWidth: CGFloat = 8
         let rowHeight: CGFloat = self.frame.height / 2
-        var width: CGFloat = self.width
+        // 使用自定义宽度或原始宽度
+        var width: CGFloat = self.isCustomWidthEnabled() ? self.getCustomWidthValue() : self.width
         var x: CGFloat = 0
         
         let freeY: CGFloat = !self.orderReversedState ? rowHeight+1 : 1
@@ -92,7 +93,9 @@ public class MemoryWidget: WidgetWrapper {
             str.draw(with: rect)
             
             x = letterWidth + Constants.Widget.spacing*2
-            width += x
+            if !self.isCustomWidthEnabled() {
+                width += x
+            }
         }
         
         var freeColor: NSColor = .controlAccentColor
@@ -148,6 +151,25 @@ public class MemoryWidget: WidgetWrapper {
     public override func settings() -> NSView {
         let view = SettingsContainerView()
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Color"), component: selectView(
                 action: #selector(self.toggleColor),
@@ -161,7 +183,8 @@ public class MemoryWidget: WidgetWrapper {
             PreferencesRow(localizedString("Reverse order"), component: switchView(
                 action: #selector(self.toggleOrder),
                 state: self.orderReversedState
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view

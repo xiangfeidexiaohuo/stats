@@ -163,23 +163,75 @@ open class WidgetWrapper: NSView, widget_p {
     public var shadowSize: CGSize
     internal var queue: DispatchQueue
     
+    // 自定义宽度相关属性
+    private var customWidthEnabled: Bool = false
+    private var customWidthValue: CGFloat = 0
+    private var originalWidth: CGFloat = 0
+    
     public init(_ type: widget_t, title: String, frame: NSRect) {
         self.type = type
         self.title = title
         self.shadowSize = frame.size
+        self.originalWidth = frame.width
         self.queue = DispatchQueue(label: "eu.exelban.Stats.WidgetWrapper.\(type.rawValue).\(title)")
         
         super.init(frame: frame)
+        
+        // 加载已保存的设置
+        self.customWidthEnabled = Store.shared.bool(key: "\(title)_\(type.rawValue)_customWidthEnabled", defaultValue: false)
+        self.customWidthValue = CGFloat(Store.shared.int(key: "\(title)_\(type.rawValue)_customWidthValue", defaultValue: Int(self.originalWidth)))
     }
     
     required public init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    // 获取实际使用的宽度
+    public var effectiveWidth: CGFloat {
+        if self.customWidthEnabled {
+            return self.customWidthValue
+        }
+        return self.originalWidth
+    }
+    
+    // 切换自定义宽度开关
+    public func setCustomWidthEnabled(_ enabled: Bool) {
+        self.customWidthEnabled = enabled
+        Store.shared.set(key: "\(title)_\(type.rawValue)_customWidthEnabled", value: enabled)
+        self.needsDisplay = true
+    }
+    
+    // 设置自定义宽度值
+    public func setCustomWidthValue(_ value: CGFloat) {
+        self.customWidthValue = value
+        Store.shared.set(key: "\(title)_\(type.rawValue)_customWidthValue", value: Int(value))
+        self.needsDisplay = true
+    }
+    
+    // 获取自定义宽度是否启用
+    public func isCustomWidthEnabled() -> Bool {
+        return self.customWidthEnabled
+    }
+    
+    // 获取当前自定义宽度值
+    public func getCustomWidthValue() -> CGFloat {
+        return self.customWidthValue
+    }
+    
+    // 获取原始宽度值
+    public func getOriginalWidth() -> CGFloat {
+        return self.originalWidth
+    }
+    
     public func setWidth(_ width: CGFloat) {
         var newWidth = width
         if width == 0 || width == 1 {
             newWidth = self.emptyView()
+        }
+        
+        // 如果启用了自定义宽度，使用自定义宽度
+        if self.customWidthEnabled {
+            newWidth = self.customWidthValue
         }
         
         guard self.shadowSize.width != newWidth else { return }

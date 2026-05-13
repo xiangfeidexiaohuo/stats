@@ -56,4 +56,35 @@ public class Label: WidgetWrapper {
             margin.y += size.height
         }
     }
+    
+    // MARK: - Settings
+    
+    public override func settings() -> NSView {
+        let view = SettingsContainerView()
+        
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
+        view.addArrangedSubview(PreferencesSection([
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
+        ]))
+        
+        return view
+    }
 }

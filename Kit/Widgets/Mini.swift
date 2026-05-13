@@ -105,6 +105,8 @@ public class Mini: WidgetWrapper {
             suffix = self._suffix
         }
         
+        // 使用自定义宽度或原始宽度
+        let currentWidth = self.isCustomWidthEnabled() ? self.getCustomWidthValue() : self.width
         let valueSize: CGFloat = self.labelState ? 12 : 14
         var origin: CGPoint = CGPoint(x: Constants.Widget.margin.x, y: (Constants.Widget.height-valueSize)/2)
         let style = NSMutableParagraphStyle()
@@ -119,7 +121,7 @@ public class Mini: WidgetWrapper {
                 NSAttributedString.Key.foregroundColor: isDarkMode ? NSColor.white : NSColor.textColor,
                 NSAttributedString.Key.paragraphStyle: style
             ]
-            let rect = CGRect(x: origin.x, y: 12, width: self.width - (Constants.Widget.margin.x*2), height: 7)
+            let rect = CGRect(x: origin.x, y: 12, width: currentWidth - (Constants.Widget.margin.x*2), height: 7)
             let str = NSAttributedString.init(string: label, attributes: stringAttributes)
             str.draw(with: rect)
             
@@ -140,11 +142,11 @@ public class Mini: WidgetWrapper {
             NSAttributedString.Key.foregroundColor: color,
             NSAttributedString.Key.paragraphStyle: style
         ]
-        let rect = CGRect(x: origin.x, y: origin.y, width: self.width - (Constants.Widget.margin.x*2), height: valueSize+1)
+        let rect = CGRect(x: origin.x, y: origin.y, width: currentWidth - (Constants.Widget.margin.x*2), height: valueSize+1)
         let str = NSAttributedString.init(string: "\(Int(value.rounded(toPlaces: 2) * 100))\(suffix)", attributes: stringAttributes)
         str.draw(with: rect)
         
-        self.setWidth(width)
+        self.setWidth(currentWidth)
     }
     
     public func setValue(_ newValue: Double) {
@@ -196,6 +198,25 @@ public class Mini: WidgetWrapper {
     public override func settings() -> NSView {
         let view = SettingsContainerView()
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Label"), component: switchView(
                 action: #selector(self.toggleLabel),
@@ -210,7 +231,8 @@ public class Mini: WidgetWrapper {
                 action: #selector(self.toggleAlignment),
                 items: Alignments,
                 selected: self.alignmentState
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view

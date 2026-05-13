@@ -510,7 +510,7 @@ public class SpeedWidget: WidgetWrapper {
         
         let displayMode = selectView(
             action: #selector(self.changeDisplayMode),
-            items: SensorsWidgetMode.filter({ $0.key == "oneRow" || $0.key == "twoRows"}),
+            items: SensorsWidgetMode.filter({ $0.key == "oneRow" || $0.key == "twoRows" }),
             selected: self.modeState
         )
         displayMode.isEnabled = self.displayValueState.count > 1
@@ -521,6 +521,25 @@ public class SpeedWidget: WidgetWrapper {
             value = value.replacingOccurrences(of: "output", with: localizedString(self.words.output), options: .literal, range: nil)
             return KeyValue_t(key: v.key, value: value)
         }
+        
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
         
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Value"), component: selectView(
@@ -568,7 +587,8 @@ public class SpeedWidget: WidgetWrapper {
                 action: #selector(self.toggleOutputColor),
                 items: SColor.allColors,
                 selected: self.outputColorState.key
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view

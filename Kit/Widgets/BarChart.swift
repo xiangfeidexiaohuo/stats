@@ -126,23 +126,28 @@ public class BarChart: WidgetWrapper {
         let lineWidth = 1 / (NSScreen.main?.backingScaleFactor ?? 1)
         let offset = lineWidth / 2
         
-        switch value.count {
-        case 0, 1:
-            width += 10 + (offset*2)
-        case 2:
-            width += 22
-        case 3...4: // 3,4
-            width += 30
-        case 5...8: // 5,6,7,8
-            width += 40
-        case 9...12: // 9..12
-            width += 50
-        case 13...16: // 13..16
-            width += 76
-        case 17...32: // 17..32
-            width += 84
-        default: // > 32
-            width += 118
+        if self.isCustomWidthEnabled() {
+            // 如果启用了自定义宽度，直接使用自定义宽度
+            width = self.getCustomWidthValue()
+        } else {
+            switch value.count {
+            case 0, 1:
+                width += 10 + (offset*2)
+            case 2:
+                width += 22
+            case 3...4: // 3,4
+                width += 30
+            case 5...8: // 5,6,7,8
+                width += 40
+            case 9...12: // 9..12
+                width += 50
+            case 13...16: // 13..16
+                width += 76
+            case 17...32: // 17..32
+                width += 84
+            default: // > 32
+                width += 118
+            }
         }
         
         if self.labelState {
@@ -268,6 +273,25 @@ public class BarChart: WidgetWrapper {
         )
         self.frameSettingsView = frame
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.redraw()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.redraw()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Label"), component: switchView(
                 action: #selector(self.toggleLabel),
@@ -279,7 +303,8 @@ public class BarChart: WidgetWrapper {
                 selected: self.colorState.key
             )),
             PreferencesRow(localizedString("Box"), component: box),
-            PreferencesRow(localizedString("Frame"), component: frame)
+            PreferencesRow(localizedString("Frame"), component: frame),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view

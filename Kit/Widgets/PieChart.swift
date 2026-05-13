@@ -85,8 +85,15 @@ public class PieChart: WidgetWrapper {
         
         self.chart.frame = NSRect(x: x, y: 0, width: self.frame.size.height, height: self.frame.size.height)
         
-        self.setFrameSize(NSSize(width: self.size + x, height: self.frame.size.height))
-        self.setWidth(self.size + x)
+        var width: CGFloat
+        if self.isCustomWidthEnabled() {
+            width = self.getCustomWidthValue()
+        } else {
+            width = self.size + x
+        }
+        
+        self.setFrameSize(NSSize(width: width, height: self.frame.size.height))
+        self.setWidth(width)
     }
     
     public func setValue(_ list: [ColorValue]) {
@@ -110,6 +117,24 @@ public class PieChart: WidgetWrapper {
     public override func settings() -> NSView {
         let view = SettingsContainerView()
         
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Label"), component: switchView(
                 action: #selector(self.toggleLabel),
@@ -118,7 +143,8 @@ public class PieChart: WidgetWrapper {
             PreferencesRow(localizedString("Monochrome accent"), component: switchView(
                 action: #selector(self.toggleMonochrome),
                 state: self.monochromeState
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view
@@ -131,7 +157,15 @@ public class PieChart: WidgetWrapper {
         let x = self.labelState ? 6 + Constants.Widget.spacing : 0
         self.labelView!.isHidden = !self.labelState
         self.chart.setFrameOrigin(NSPoint(x: x, y: 0))
-        self.setWidth(self.labelState ? self.size+x : self.size)
+        
+        var width: CGFloat
+        if self.isCustomWidthEnabled() {
+            width = self.getCustomWidthValue()
+        } else {
+            width = self.labelState ? self.size+x : self.size
+        }
+        
+        self.setWidth(width)
     }
     
     @objc private func toggleMonochrome(_ sender: NSControl) {

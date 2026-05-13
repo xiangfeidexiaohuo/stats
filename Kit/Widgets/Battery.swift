@@ -424,6 +424,25 @@ public class BatteryWidget: WidgetWrapper {
             additionalOptions = additionalOptions.filter({ $0.key == "none" || $0.key == "percentage" })
         }
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Additional information"), component: selectView(
                 action: #selector(self.toggleAdditional),
@@ -445,7 +464,8 @@ public class BatteryWidget: WidgetWrapper {
             PreferencesRow(localizedString("Charger state inside the battery"), component: switchView(
                 action: #selector(self.toggleChargerIconInside),
                 state: self.chargerIconInside
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view
@@ -636,12 +656,32 @@ public class BatteryDetailsWidget: WidgetWrapper {
     public override func settings() -> NSView {
         let view = SettingsContainerView()
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue() != 0 ? self.getCustomWidthValue() : self.getOriginalWidth()),
+            range: NSRange(location: 10, length: 290),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.display()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.display()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Details"), component: selectView(
                 action: #selector(self.toggleMode),
                 items: BatteryInfo,
                 selected: self.mode
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view

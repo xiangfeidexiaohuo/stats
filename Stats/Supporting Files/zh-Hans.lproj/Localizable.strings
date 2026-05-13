@@ -193,6 +193,7 @@
 "Label" = "标签";
 "Box" = "底盒";
 "Frame" = "外框";
+"Custom width" = "自定义宽度";
 "Value" = "数值";
 "Colorize" = "彩色";
 "Colorize value" = "数值颜色";

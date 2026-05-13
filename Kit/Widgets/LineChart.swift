@@ -150,11 +150,13 @@ public class LineChart: WidgetWrapper {
             pressureLevel = self._pressureLevel
         }
         
-        var width = self.width + (Constants.Widget.margin.x*2)
+        // 使用自定义宽度或原始宽度
+        let currentWidth = self.isCustomWidthEnabled() ? self.getCustomWidthValue() : self.width
+        var width = currentWidth + (Constants.Widget.margin.x*2)
         var x: CGFloat = 0
         let lineWidth = 1 / (NSScreen.main?.backingScaleFactor ?? 1)
         let offset = lineWidth / 2
-        var boxSize: CGSize = CGSize(width: self.width - (Constants.Widget.margin.x*2), height: self.frame.size.height)
+        var boxSize: CGSize = CGSize(width: currentWidth - (Constants.Widget.margin.x*2), height: self.frame.size.height)
         
         var color: NSColor = .controlAccentColor
         switch self.colorState {
@@ -279,6 +281,25 @@ public class LineChart: WidgetWrapper {
         )
         self.frameSettingsView = frame
         
+        // 宽度调节设置
+        let widthStepper = StepperInput(
+            Int(self.getCustomWidthValue()),
+            range: NSRange(location: 10, length: 200),
+            unit: "pt",
+            callback: { [weak self] value in
+                self?.setCustomWidthValue(CGFloat(value))
+                self?.redraw()
+            }
+        )
+        let widthSwitch = PreferencesSwitch(
+            action: { [weak self] sender in
+                self?.setCustomWidthEnabled(controlState(sender))
+                self?.redraw()
+            },
+            state: self.isCustomWidthEnabled(),
+            with: widthStepper
+        )
+        
         view.addArrangedSubview(PreferencesSection([
             PreferencesRow(localizedString("Label"), component: switchView(
                 action: #selector(self.toggleLabel),
@@ -308,7 +329,8 @@ public class LineChart: WidgetWrapper {
                 action: #selector(self.toggleScale),
                 items: Scale.allCases.filter({ $0 != .fixed }),
                 selected: self.scaleState.key
-            ))
+            )),
+            PreferencesRow(localizedString("Custom width"), component: widthSwitch)
         ]))
         
         return view
